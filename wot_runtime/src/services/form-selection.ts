@@ -2,6 +2,9 @@ import type { ThingDescription } from './thing-catalog-client.js';
 
 type JsonRecord = Record<string, unknown>;
 
+/**
+ * Valid operation names for WoT affordances.
+ */
 export type AffordanceOperation =
   | 'readproperty'
   | 'writeproperty'
@@ -9,6 +12,9 @@ export type AffordanceOperation =
   | 'invokeaction'
   | 'subscribeevent';
 
+/**
+ * Normalized representation of a form selector.
+ */
 type NormalizedFormSelector = {
   formIndex?: number;
   href?: string;
@@ -17,19 +23,31 @@ type NormalizedFormSelector = {
   preferredSubprotocol?: string;
 };
 
+/**
+ * Checks if a value is a plain object.
+ */
 function isPlainObject(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * Cleans and trims a string value.
+ */
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+/**
+ * Normalizes a media type string (e.g., "application/json; charset=utf-8" -> "application/json").
+ */
 function normalizeMediaType(value: unknown): string {
   const raw = cleanString(value).toLowerCase();
   return raw.split(';', 1)[0] || '';
 }
 
+/**
+ * Normalizes a string or array of strings into a lowercase array of strings.
+ */
 function normalizeStringArray(value: unknown): string[] {
   if (typeof value === 'string') {
     const cleaned = cleanString(value).toLowerCase();
@@ -43,6 +61,9 @@ function normalizeStringArray(value: unknown): string[] {
   return value.map((item) => cleanString(item).toLowerCase()).filter((item) => item.length > 0);
 }
 
+/**
+ * Extracts the URI scheme from an href string.
+ */
 function extractScheme(href: string): string {
   try {
     return new URL(href).protocol.replace(/:$/, '').toLowerCase();
@@ -52,6 +73,9 @@ function extractScheme(href: string): string {
   }
 }
 
+/**
+ * Normalizes an untrusted form selector object.
+ */
 function normalizeFormSelector(formSelector: unknown): NormalizedFormSelector | null {
   if (!isPlainObject(formSelector)) {
     return null;
@@ -87,6 +111,9 @@ function normalizeFormSelector(formSelector: unknown): NormalizedFormSelector | 
   return Object.keys(normalized).length > 0 ? normalized : null;
 }
 
+/**
+ * Maps an AffordanceOperation to its corresponding section in a Thing Description.
+ */
 function operationSection(operation: AffordanceOperation): 'properties' | 'actions' | 'events' {
   if (operation === 'invokeaction') {
     return 'actions';
@@ -97,11 +124,22 @@ function operationSection(operation: AffordanceOperation): 'properties' | 'actio
   return 'properties';
 }
 
+/**
+ * Safely extracts the Thing ID from a Thing Description.
+ */
 function thingIdFromDocument(document: ThingDescription): string {
   const thingId = cleanString(document.id);
   return thingId || 'unknown';
 }
 
+/**
+ * Retrieves the definition of a specific affordance from a Thing Description.
+ *
+ * @param document The Thing Description.
+ * @param affordanceName The name of the affordance (property, action, or event).
+ * @param operation The operation being performed.
+ * @returns The affordance definition object or null if not found.
+ */
 export function getAffordanceDefinition(
   document: ThingDescription,
   affordanceName: string,
@@ -116,6 +154,9 @@ export function getAffordanceDefinition(
   return isPlainObject(affordance) ? affordance : null;
 }
 
+/**
+ * Retrieves the forms array for a specific affordance.
+ */
 function getAffordanceForms(
   document: ThingDescription,
   affordanceName: string,
@@ -129,11 +170,17 @@ function getAffordanceForms(
   return affordance.forms.filter(isPlainObject);
 }
 
+/**
+ * Checks if a specific form supports the requested operation.
+ */
 function formSupportsOperation(form: JsonRecord, operation: AffordanceOperation): boolean {
   const operations = normalizeStringArray(form.op);
   return operations.length === 0 || operations.includes(operation);
 }
 
+/**
+ * Checks if a form matches the criteria in a normalized form selector.
+ */
 function formMatchesSelector(
   form: JsonRecord,
   formIndex: number,
@@ -176,6 +223,18 @@ function formMatchesSelector(
   return true;
 }
 
+/**
+ * Resolves a form index from a Thing Description based on a form selector.
+ * Throws an error if a selector was provided but no form matched it.
+ * Returns undefined if no selector was provided (letting node-wot choose the best form).
+ *
+ * @param document The Thing Description.
+ * @param affordanceName The name of the affordance.
+ * @param operation The operation being performed.
+ * @param formSelector The untrusted form selector object from the request.
+ * @returns The matched form index or undefined.
+ * @throws {Error} if a selector was provided but no match was found.
+ */
 export function resolveFormIndex(
   document: ThingDescription,
   affordanceName: string,

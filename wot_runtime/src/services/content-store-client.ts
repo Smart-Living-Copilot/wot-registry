@@ -5,6 +5,9 @@ import axios from 'axios';
 import { config } from '../config/env.js';
 import { extractRegistryErrorMessage, registryServiceHeaders } from './thing-catalog-client.js';
 
+/**
+ * Represents a stored content entry in the central registry's content store.
+ */
 export type ContentStoreEntry = {
   content_ref: string;
   digest: string;
@@ -21,6 +24,9 @@ export type ContentStoreEntry = {
   download_url: string;
 };
 
+/**
+ * Parameters for storing a new content blob.
+ */
 type StoreContentBlobParams = {
   payload: Buffer;
   contentType: string;
@@ -30,6 +36,9 @@ type StoreContentBlobParams = {
   metadata?: Record<string, unknown>;
 };
 
+/**
+ * Generates the full URL for the registry's content store API.
+ */
 function contentUrl(path = ''): string {
   const trimmed = path.replace(/^\/+/, '');
   if (!trimmed) {
@@ -38,6 +47,13 @@ function contentUrl(path = ''): string {
   return `${config.registryUrl}/api/content/${trimmed}`;
 }
 
+/**
+ * Fetches a content blob from the central registry by its reference.
+ *
+ * @param contentRef The unique reference string for the content.
+ * @returns A promise resolving to the payload Buffer and its content type.
+ * @throws {Error} if the fetch fails.
+ */
 export async function fetchContentBlob(contentRef: string): Promise<{ payload: Buffer; contentType: string }> {
   try {
     const response = await axios.get(contentUrl(`${encodeURIComponent(contentRef)}/download`), {
@@ -58,6 +74,14 @@ export async function fetchContentBlob(contentRef: string): Promise<{ payload: B
   }
 }
 
+/**
+ * Stores a binary blob in the central registry's content store.
+ * Used for offloading oversized WoT interaction payloads.
+ *
+ * @param params The content blob and associated metadata.
+ * @returns A promise resolving to the created ContentStoreEntry.
+ * @throws {Error} if the storage operation fails.
+ */
 export async function storeContentBlob(params: StoreContentBlobParams): Promise<ContentStoreEntry> {
   const normalizedContentType = params.contentType.trim() || 'application/octet-stream';
   const form = new FormData();

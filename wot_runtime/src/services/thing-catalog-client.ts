@@ -4,8 +4,14 @@ import axios, { AxiosError } from 'axios';
 
 import { config } from '../config/env.js';
 
+/**
+ * Represents a W3C Web of Things (WoT) Thing Description (TD) as a plain object.
+ */
 export type ThingDescription = Record<string, unknown>;
 
+/**
+ * Generates the full URL for the registry's Thing Catalog API.
+ */
 function thingsUrl(path: string): string {
   const trimmed = path.replace(/^\/+/, '');
   if (!trimmed) {
@@ -14,6 +20,9 @@ function thingsUrl(path: string): string {
   return `${config.registryUrl}/api/things/${trimmed}`;
 }
 
+/**
+ * Generates headers for service-to-service authentication with the central registry.
+ */
 export function registryServiceHeaders(): Record<string, string> | undefined {
   if (!config.registryServiceToken) {
     return undefined;
@@ -25,6 +34,10 @@ export function registryServiceHeaders(): Record<string, string> | undefined {
   };
 }
 
+/**
+ * Extracts the actual TD document from a potentially wrapped registry response.
+ * Some registry endpoints return the TD embedded in a metadata object.
+ */
 function extractThingDocument(payload: ThingDescription): ThingDescription {
   const embedded = payload.document;
   if (embedded && typeof embedded === 'object' && !Array.isArray(embedded)) {
@@ -33,6 +46,13 @@ function extractThingDocument(payload: ThingDescription): ThingDescription {
   return payload;
 }
 
+/**
+ * Extracts a human-readable error message from a registry response or an Axios error.
+ *
+ * @param error The caught error object.
+ * @param fallback A fallback message if no specific error can be extracted.
+ * @returns The extracted error message.
+ */
 export function extractRegistryErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof AxiosError) {
     const payload = error.response?.data;
@@ -51,6 +71,14 @@ export function extractRegistryErrorMessage(error: unknown, fallback: string): s
   return fallback;
 }
 
+/**
+ * Fetches a Thing Description from the central registry by its unique ID.
+ * Calculates a SHA-256 hash of the document for identification and caching purposes.
+ *
+ * @param thingId The unique identifier of the Thing.
+ * @returns A promise resolving to the TD document and its hash.
+ * @throws {Error} if the TD cannot be fetched.
+ */
 export async function fetchThingDescription(thingId: string): Promise<{
   document: ThingDescription;
   hash: string;
@@ -73,6 +101,11 @@ export async function fetchThingDescription(thingId: string): Promise<{
   }
 }
 
+/**
+ * Pings the registry's health endpoint to check for reachability.
+ *
+ * @returns A promise resolving to true if reachable, false otherwise.
+ */
 export async function pingThingCatalog(): Promise<boolean> {
   try {
     await axios.get(`${config.registryUrl}/health`, {

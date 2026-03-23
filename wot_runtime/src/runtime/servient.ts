@@ -22,6 +22,9 @@ const { MBusClientFactory } = wotMBus as any;
 const { ModbusClientFactory } = wotModbus as any;
 const { MqttClient, MqttClientFactory, MqttsClientFactory } = wotMqtt as any;
 
+/**
+ * List of protocols supported by the wot_runtime.
+ */
 const supportedProtocols = [
   'http',
   'https',
@@ -40,6 +43,9 @@ let startedAt: string | null = null;
 let servientInstance: any = null;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
+/**
+ * Generates registry service headers for authentication with the central registry.
+ */
 function registryServiceHeaders(): Record<string, string> | undefined {
   if (!config.registryServiceToken) {
     return undefined;
@@ -51,6 +57,9 @@ function registryServiceHeaders(): Record<string, string> | undefined {
   };
 }
 
+/**
+ * Fetches runtime secrets (credentials) from the central registry.
+ */
 async function fetchSecretsFromRegistry(): Promise<Record<string, any> | null> {
   try {
     const url = `${config.registryUrl}/api/runtime/secrets`;
@@ -72,6 +81,9 @@ async function fetchSecretsFromRegistry(): Promise<Record<string, any> | null> {
   }
 }
 
+/**
+ * Loads runtime secrets from a local JSON file.
+ */
 function loadSecretsFromFile(): Record<string, any> | null {
   try {
     if (fs.existsSync(config.secretsPath)) {
@@ -85,6 +97,9 @@ function loadSecretsFromFile(): Record<string, any> | null {
   }
 }
 
+/**
+ * Loads secrets from registry or file and applies them to the servient.
+ */
 async function loadAndApplySecrets(servient: any): Promise<void> {
   // Try the registry first, fall back to file
   let secrets = await fetchSecretsFromRegistry();
@@ -107,6 +122,9 @@ async function loadAndApplySecrets(servient: any): Promise<void> {
   }
 }
 
+/**
+ * Refreshes secrets from the registry.
+ */
 async function refreshSecrets(): Promise<void> {
   if (!servientInstance) return;
 
@@ -125,6 +143,10 @@ async function refreshSecrets(): Promise<void> {
   }
 }
 
+/**
+ * Installs credential resolution patches for node-wot protocol clients.
+ * This allows wot_runtime to use its custom credential mapping logic.
+ */
 function installCredentialPatches(): void {
   // Only patch clients that actually need the resolved credential object and
   // expose `setSecurity` on the prototype in a stable way.
@@ -133,6 +155,9 @@ function installCredentialPatches(): void {
   installClientCredentialPatch(MqttClient);
 }
 
+/**
+ * Registers all supported protocol client factories with the servient.
+ */
 function registerClientFactories(servient: any): void {
   servient.addClientFactory(new HttpClientFactory());
   servient.addClientFactory(new HttpsClientFactory());
@@ -142,9 +167,13 @@ function registerClientFactories(servient: any): void {
   servient.addClientFactory(new MBusClientFactory());
   servient.addClientFactory(new ModbusClientFactory());
   servient.addClientFactory(new MqttClientFactory());
+  servient.addClientFactory(new HttpsClientFactory());
   servient.addClientFactory(new MqttsClientFactory());
 }
 
+/**
+ * Initializes and starts the node-wot servient.
+ */
 async function startWot(): Promise<any> {
   const codec = new SWSBBase10('application/json');
   ContentSerdes.get().addCodec(codec);
@@ -172,6 +201,10 @@ async function startWot(): Promise<any> {
   return wot;
 }
 
+/**
+ * Returns a promise that resolves to the singleton WoT client instance.
+ * Initializes the servient on first call.
+ */
 export async function getWotClient(): Promise<any> {
   if (!wotInstancePromise) {
     wotInstancePromise = startWot().catch((error) => {
@@ -184,10 +217,16 @@ export async function getWotClient(): Promise<any> {
   return wotInstancePromise;
 }
 
+/**
+ * Ensures that the WoT servient is initialized and ready.
+ */
 export async function ensureWotReady(): Promise<void> {
   await getWotClient();
 }
 
+/**
+ * Returns a snapshot of the current runtime state for health checks.
+ */
 export function getRuntimeSnapshot(): {
   servientReady: boolean;
   startedAt: string | null;

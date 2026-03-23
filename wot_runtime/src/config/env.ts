@@ -1,3 +1,10 @@
+/**
+ * Parses an environment variable as an integer.
+ *
+ * @param name The name of the environment variable.
+ * @param fallback The fallback value if not set or invalid.
+ * @returns The parsed integer or the fallback.
+ */
 function parseIntEnv(name: string, fallback: number): number {
   const rawValue = process.env[name];
   if (!rawValue) {
@@ -8,10 +15,20 @@ function parseIntEnv(name: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/**
+ * Parses an environment variable as a non-negative integer.
+ */
 function parseNonNegativeIntEnv(name: string, fallback: number): number {
   return Math.max(0, parseIntEnv(name, fallback));
 }
 
+/**
+ * Ensures an environment variable is set and returns its value.
+ *
+ * @param name The name of the environment variable.
+ * @returns The trimmed string value.
+ * @throws {Error} if the variable is missing or empty.
+ */
 function requiredStringEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (value) {
@@ -21,6 +38,10 @@ function requiredStringEnv(name: string): string {
   throw new Error(`Missing required environment variable: ${name}`);
 }
 
+/**
+ * Central configuration object for the wot_runtime.
+ * Values are loaded from environment variables with sensible defaults.
+ */
 export const config = {
   host: process.env.HOST || '127.0.0.1',
   port: parseIntEnv('PORT', 3003),
@@ -38,4 +59,7 @@ export const config = {
   offloadedPayloadTtlSeconds: parseNonNegativeIntEnv('WOT_OFFLOADED_PAYLOAD_TTL_SECONDS', 86400),
 } as const;
 
+/**
+ * Type definition for the application configuration.
+ */
 export type AppConfig = typeof config;

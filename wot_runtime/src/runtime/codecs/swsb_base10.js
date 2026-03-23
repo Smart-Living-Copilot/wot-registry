@@ -1,4 +1,13 @@
+/* global console, Buffer */
+
+/**
+ * Version of the payload parser logic.
+ */
 const payload_parser_version = [1, 3, 3];
+
+/**
+ * Mapping of error codes to human-readable strings.
+ */
 const ERROR_CODE = {
   0: 'VALVE_DRIVE_READY',
   1: 'VALVE_DRIVE_UNINITIALIZED',
@@ -7,6 +16,10 @@ const ERROR_CODE = {
   4: 'ADJUST_RANGE_UNDERSIZE',
   5: 'ADAPTION_RUN_CALC_ERROR',
 };
+
+/**
+ * Mapping of device active modes to human-readable strings.
+ */
 const ACTIVE_MODE = {
   0: 'Manu Temp',
   1: 'Manu_Pos',
@@ -17,6 +30,10 @@ const ACTIVE_MODE = {
   6: 'Window Open',
   7: 'Holiday',
 };
+
+/**
+ * Mapping of weekday indices to names.
+ */
 const WEEKDAY = {
   0: 'SUNDAY',
   1: 'MONDAY',
@@ -26,6 +43,10 @@ const WEEKDAY = {
   5: 'FRIDAY',
   6: 'SATURDAY',
 };
+
+/**
+ * Mapping of month indices to names.
+ */
 const MONTH = {
   0: 'JANUARY',
   1: 'FEBRUARY',
@@ -40,6 +61,10 @@ const MONTH = {
   10: 'NOVEMBER',
   11: 'DECEMBER',
 };
+
+/**
+ * Mapping of week-of-month indices to labels.
+ */
 const WEEK_OF_MONTH = {
   1: '1st',
   2: '2nd',
@@ -47,6 +72,10 @@ const WEEK_OF_MONTH = {
   4: '4th',
   5: 'last',
 };
+
+/**
+ * Mapping of data rate indices to labels.
+ */
 const DATA_RATE = {
   0: 'Adaptive Data Rate',
   1: 'DR 0',
@@ -56,11 +85,18 @@ const DATA_RATE = {
   5: 'DR 4',
   6: 'DR 5',
 };
+
+/**
+ * Mapping of rejoin behavior boolean to labels.
+ */
 const REJOIN_BEHAVIOR = {
   true: 'Cyclic Rejoin',
   false: 'Single Rejoin',
 };
 
+/**
+ * Mapping of command IDs to human-readable names.
+ */
 const COMMAND_ID = {
   0: 'COMMAND_ID_GET_STATUS_INTERVAL',
   1: 'COMMAND_ID_SET_STATUS_INTERVAL',
@@ -135,14 +171,18 @@ const COMMAND_ID = {
   127: 'COMMAND_ID_GET_VERSION',
 };
 
+/**
+ * Decodes a LoRaWAN uplink payload for the SWSB device.
+ *
+ * @param {object} input Object containing the raw bytes.
+ * @returns {object} Decoded data object.
+ */
 function decodeUplink(input) {
   const data = {};
   let idx = 0;
-  let commandId = -1;
 
   {
-    commandId = input.bytes[idx++];
-    console.log(commandId);
+    const commandId = input.bytes[idx++];
     switch (COMMAND_ID[commandId]) {
       case 'COMMAND_ID_GET_STATUS_INTERVAL':
         data.status_report = data.status_report || {};
@@ -150,7 +190,7 @@ function decodeUplink(input) {
         data.status_report.interval.value = input.bytes[idx++] * 30 + 30;
         data.status_report.interval.unit = 's';
         break;
-      case 'COMMAND_ID_GET_STATUS_PARAMETER_TX_ENABLE_REGISTER':
+      case 'COMMAND_ID_GET_STATUS_PARAMETER_TX_ENABLE_REGISTER': {
         data.radio = data.radio || {};
         data.radio.status_report = data.radio.status_report || {};
         data.radio.status_report.parameter_tx_enable_reg = data.radio.status_report.parameter_tx_enable_reg || {};
@@ -183,7 +223,8 @@ function decodeUplink(input) {
         );
         data.radio.status_report.parameter_tx_enable_reg.unit = 'bool';
         break;
-      case 'COMMANF_ID_GET_STATUS':
+      }
+      case 'COMMANF_ID_GET_STATUS': {
         const statusParamTxStatus = input.bytes[idx++];
 
         if (statusParamTxStatus & (1 << 7)) {
@@ -252,6 +293,7 @@ function decodeUplink(input) {
           data.heating_control.mode.window_open_detection.is_open.unit = 'bool';
         }
         break;
+      }
       case 'COMMAND_ID_GET_BATTERY_VOLTAGE':
         data.battery_voltage = {};
         data.battery_voltage.value = (input.bytes[idx++] * 10 + 1500).toFixed(0);
@@ -473,7 +515,7 @@ function decodeUplink(input) {
         data.heating_control.mode.boost.config.valve_position.value = (input.bytes[idx++] * 0.5).toFixed(0);
         data.heating_control.mode.boost.config.valve_position.unit = '%';
         break;
-      case 'COMMAND_ID_GET_WEEK_PROGRAM':
+      case 'COMMAND_ID_GET_WEEK_PROGRAM': {
         data.heating_control = data.heating_control || {};
         data.heating_control.mode = data.heating_control.mode || {};
         data.heating_control.mode.auto = data.heating_control.mode.auto || {};
@@ -526,6 +568,7 @@ function decodeUplink(input) {
           }
         }
         break;
+      }
       case 'COMMAND_ID_GET_VALVE_POSITION':
         data.heating_control = data.heating_control || {};
         data.heating_control.valve_position = {};
@@ -649,7 +692,7 @@ function decodeUplink(input) {
         data.heating_control.mode.window_open_detection.is_open.value = !!(input.bytes[idx++] & 0x01);
         data.heating_control.mode.window_open_detection.is_open.unit = 'bool';
         break;
-      case 'COMMAND_ID_GET_WINDOW_OPEN_DETECTION_CONFIG':
+      case 'COMMAND_ID_GET_WINDOW_OPEN_DETECTION_CONFIG': {
         data.heating_control = data.heating_control || {};
         data.heating_control.mode = data.heating_control.mode || {};
         data.heating_control.mode.window_open_detection = data.heating_control.mode.window_open_detection || {};
@@ -693,6 +736,7 @@ function decodeUplink(input) {
         ).toFixed(1);
         data.heating_control.mode.window_open_detection.config.open_temperature.unit = '°C';
         break;
+      }
       case 'COMMAND_ID_GET_DECALCIFICATION_CONFIG':
         data.heating_control = data.heating_control || {};
         data.heating_control.config = data.heating_control.config || {};
@@ -715,7 +759,7 @@ function decodeUplink(input) {
         data.heating_control.config.decalcification_time.hour.unit = 'h';
         data.heating_control.config.decalcification_time.minute.value = (input.bytes[idx++] & 0x0f) * 5;
         break;
-      case 'COMMAND_ID_COMMAND_FAILED':
+      case 'COMMAND_ID_COMMAND_FAILED': {
         data.radio = data.radio || {};
         data.radio.failed_commands = {};
 
@@ -729,6 +773,7 @@ function decodeUplink(input) {
 
         data.radio.failed_commands.unit = 'COMMAND_ID';
         break;
+      }
       case 'COMMAND_ID_GET_BUTTON_ACTION':
         data.button_action = data.button_action || {};
         data.button_action.single_tap = data.button_action.single_tap || {};
@@ -858,9 +903,12 @@ function decodeUplink(input) {
   return data;
 }
 
-// Export for use in post-processing when server returns JSON instead of binary
-export { decodeUplink };
-
+/**
+ * Decodes a hex string representing an SWSB uplink payload.
+ *
+ * @param {string} hexString The hex-encoded string to decode.
+ * @returns {object} The decoded data.
+ */
 export function decodeHexString(hexString) {
   // Handle JSON-wrapped hex string from server
   const cleanHex = hexString.replace(/^"|"$/g, '').trim();
@@ -870,6 +918,13 @@ export function decodeHexString(hexString) {
 
 const SWSB_BASE10_MEDIA_TYPE = 'application/vnd.swsb-base10+octet-stream';
 
+/**
+ * Recursively decodes a value using schema annotations to identify SWSB-encoded fields.
+ *
+ * @param {any} value The value to decode.
+ * @param {object} schema The JSON Schema definition for the value.
+ * @returns {any} The decoded value.
+ */
 function schemaDrivenDecode(value, schema) {
   if (!value || !schema) return value;
 
@@ -905,20 +960,35 @@ function schemaDrivenDecode(value, schema) {
   return value;
 }
 
+/**
+ * Node-WoT ContentCodec for SWSB Base10 binary format.
+ */
 export default class SWSBBase10 {
+  /**
+   * Creates an instance of SWSBBase10.
+   *
+   * @param {string} mediaType The media type handled by this codec.
+   */
   constructor(mediaType = SWSB_BASE10_MEDIA_TYPE) {
     this.mediaType = mediaType;
   }
 
   /**
-   * Defines which Content-Type this codec handles
+   * Defines which Content-Type this codec handles.
+   *
+   * @returns {string} The media type.
    */
   getMediaType() {
     return this.mediaType;
   }
 
   /**
-   * Decodes binary data (Buffer) into a JS Object
+   * Decodes binary data (Buffer) into a JS Object.
+   *
+   * @param {Buffer} buffer The raw binary data.
+   * @param {object} schema Optional JSON Schema for the data.
+   * @param {object} [_parameters] Optional parameters.
+   * @returns {any} The decoded value.
    */
   bytesToValue(buffer, schema, _parameters) {
     const text = buffer.toString('utf8').trim();
@@ -947,7 +1017,12 @@ export default class SWSBBase10 {
   }
 
   /**
-   * Encodes a JS Object into binary data (Buffer)
+   * Encodes a JS Object into binary data (Buffer).
+   *
+   * @param {any} value The value to encode.
+   * @param {object} [_schema] Optional JSON Schema.
+   * @param {object} [_parameters] Optional parameters.
+   * @returns {Buffer} The encoded binary data.
    */
   valueToBytes(value, _schema, _parameters) {
     let body = '';
@@ -957,3 +1032,5 @@ export default class SWSBBase10 {
     return Buffer.from(body);
   }
 }
+
+export { decodeUplink };

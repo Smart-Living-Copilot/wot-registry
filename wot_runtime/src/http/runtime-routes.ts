@@ -12,10 +12,16 @@ import { ensureEventSubscription, ensurePropertyObservation, removeSubscription 
 
 type JsonRecord = Record<string, unknown>;
 
+/**
+ * Checks if a value is a plain object.
+ */
 function isPlainObject(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * Extracts a string field from a request body, supporting both camelCase and snake_case keys.
+ */
 function getStringField(body: JsonRecord, camelKey: string, snakeKey: string): string {
   const direct = body[camelKey];
   if (typeof direct === 'string' && direct.trim()) {
@@ -30,11 +36,17 @@ function getStringField(body: JsonRecord, camelKey: string, snakeKey: string): s
   return '';
 }
 
+/**
+ * Extracts an optional string field from a request body.
+ */
 function getOptionalStringField(body: JsonRecord, camelKey: string, snakeKey: string): string | undefined {
   const value = getStringField(body, camelKey, snakeKey);
   return value || undefined;
 }
 
+/**
+ * Extracts an optional integer field from a request body, supporting both camelCase and snake_case keys.
+ */
 function getOptionalIntegerField(body: JsonRecord, camelKey: string, snakeKey: string): number | undefined {
   const candidates = [body[camelKey], body[snakeKey]];
   for (const value of candidates) {
@@ -45,6 +57,9 @@ function getOptionalIntegerField(body: JsonRecord, camelKey: string, snakeKey: s
   return undefined;
 }
 
+/**
+ * Builds a WoT form selector object from request body fields.
+ */
 function buildFormSelector(body: JsonRecord): JsonRecord | undefined {
   const formSelector: JsonRecord = {};
   const formIndex = getOptionalIntegerField(body, 'formIndex', 'form_index');
@@ -74,6 +89,9 @@ function buildFormSelector(body: JsonRecord): JsonRecord | undefined {
   return Object.keys(formSelector).length > 0 ? formSelector : undefined;
 }
 
+/**
+ * Builds WoT URI variables from request body fields.
+ */
 function buildUriVariables(body: JsonRecord): JsonRecord[] | undefined {
   const raw = body.uriVariables ?? body.uri_variables;
   if (!isPlainObject(raw)) {
@@ -88,6 +106,9 @@ function buildUriVariables(body: JsonRecord): JsonRecord[] | undefined {
   return entries.length > 0 ? entries : undefined;
 }
 
+/**
+ * Builds a WoT payload envelope from request body fields, supporting inline values and base64-encoded binary data.
+ */
 function buildPayloadEnvelope(
   body: JsonRecord,
   valueKey: string,
@@ -118,6 +139,9 @@ function buildPayloadEnvelope(
   return encodePayloadEnvelope(value, contentType);
 }
 
+/**
+ * Builds a standardized WoT interaction target object.
+ */
 function buildTarget(thingId: string, affordanceName: string, operation: string): JsonRecord {
   return {
     thingId,
@@ -126,6 +150,10 @@ function buildTarget(thingId: string, affordanceName: string, operation: string)
   };
 }
 
+/**
+ * Serializes a WoT payload envelope for inclusion in an HTTP response.
+ * Handles inline values, binary data (base64), and content references.
+ */
 function serializePayloadEnvelope(payload: any): JsonRecord {
   const contentType = String(payload?.contentType || 'application/json');
   const body = normalizeBody(payload?.body);
@@ -157,6 +185,9 @@ function serializePayloadEnvelope(payload: any): JsonRecord {
   };
 }
 
+/**
+ * Serializes a node-wot interaction result into a standardized HTTP response structure.
+ */
 function serializeInteractionResponse(result: any): JsonRecord {
   const response = result?.response || result;
   return {
@@ -170,6 +201,9 @@ function serializeInteractionResponse(result: any): JsonRecord {
   };
 }
 
+/**
+ * Helper to send a standardized error response.
+ */
 function sendError(response: any, error: unknown): void {
   response.status(getRuntimeErrorStatus(error)).json({
     detail: formatError(error),
@@ -177,6 +211,10 @@ function sendError(response: any, error: unknown): void {
   });
 }
 
+/**
+ * Creates the Express router for wot_runtime's internal API.
+ * This API is used by the search indexer and other registry components to interact with WoT devices.
+ */
 export function createRuntimeRouter(): Router {
   const router = Router();
 

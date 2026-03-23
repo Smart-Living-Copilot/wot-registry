@@ -4,11 +4,17 @@
  * The class sets its prototype to NotSupportedError (a known node-wot bug),
  * so `instanceof DataSchemaError` is unreliable.  We check the message and
  * the presence of a `.value` property instead.
+ *
+ * @param error The caught error object.
+ * @returns True if the error is a node-wot DataSchemaError.
  */
 export function isDataSchemaError(error: unknown): error is Error & { value: unknown } {
   return error instanceof Error && error.message === 'Invalid value according to DataSchema' && 'value' in error;
 }
 
+/**
+ * Standard error codes for wot_runtime interactions.
+ */
 export type RuntimeErrorCode =
   | 'invalid_argument'
   | 'not_found'
@@ -36,6 +42,9 @@ const HTTP_STATUS_BY_RUNTIME_ERROR_CODE: Record<RuntimeErrorCode, number> = {
   unknown: 500,
 };
 
+/**
+ * Specialized error class for wot_runtime logic and interactions.
+ */
 export class RuntimeError extends Error {
   code: RuntimeErrorCode;
   status: number;
@@ -50,26 +59,53 @@ export class RuntimeError extends Error {
   }
 }
 
+/**
+ * Checks if a value is a record object.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * Factory for creating RuntimeError instances.
+ *
+ * @param code The standardized runtime error code.
+ * @param message A human-readable error message.
+ * @returns A new RuntimeError instance.
+ */
 export function createRuntimeError(code: RuntimeErrorCode, message: string): RuntimeError {
   return new RuntimeError(code, message);
 }
 
+/**
+ * Checks if an error is a RuntimeError.
+ */
 export function isRuntimeError(error: unknown): error is RuntimeError {
   return error instanceof RuntimeError;
 }
 
+/**
+ * Extracts the HTTP status code from an error.
+ * Defaults to 500 if the error is not a recognized RuntimeError.
+ */
 export function getRuntimeErrorStatus(error: unknown): number {
   return isRuntimeError(error) ? error.status : 500;
 }
 
+/**
+ * Extracts the standardized error code from an error.
+ */
 export function getRuntimeErrorCode(error: unknown): RuntimeErrorCode | 'unknown' {
   return isRuntimeError(error) ? error.code : 'unknown';
 }
 
+/**
+ * Formats an unknown error into a human-readable string.
+ * Supports Error objects, strings, and plain object envelopes.
+ *
+ * @param error The caught error object.
+ * @returns A human-readable error string.
+ */
 export function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message || error.name || 'Unknown error';

@@ -14,15 +14,28 @@ import { createRuntimeError, formatError } from '../services/errors.js';
 import { getAffordanceDefinition, resolveFormIndex } from '../services/form-selection.js';
 import { getRuntimeHealth } from '../services/runtime-health.js';
 
+/**
+ * Supported interaction operations for metrics and logging.
+ */
 type InteractionOperation = 'read_property' | 'invoke_action';
+
+/**
+ * Internal representation of an interaction payload after encoding.
+ */
 type EncodedInteractionPayload = {
   body: Buffer;
   contentType: string;
   sourceProtocol: string;
 };
 
+/**
+ * Media type used for payloads that reference external content (offloaded).
+ */
 const CONTENT_REF_MEDIA_TYPE = 'application/vnd.wot.content-ref+json';
 
+/**
+ * Checks if a payload is a content reference (referencing an offloaded blob).
+ */
 function isContentRefPayload(payload: any): boolean {
   if (!payload) return false;
   const ct = String(payload.contentType || '')
@@ -31,6 +44,14 @@ function isContentRefPayload(payload: any): boolean {
   return ct === CONTENT_REF_MEDIA_TYPE;
 }
 
+/**
+ * Resolves a content reference input by fetching the actual blob from the content store.
+ * Used when an action input or property write is too large to be sent inline.
+ *
+ * @param payload The content reference payload.
+ * @returns The resolved payload { body: Buffer, contentType: string }.
+ * @throws {RuntimeError} if the content reference is empty or invalid.
+ */
 async function resolveContentRefInput(payload: any): Promise<any> {
   const body = normalizeBody(payload.body);
   if (body.length === 0) return payload;
@@ -55,14 +76,23 @@ async function resolveContentRefInput(payload: any): Promise<any> {
   };
 }
 
+/**
+ * Checks if a value is a plain object.
+ */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * Extracts the thingId from a runtime request.
+ */
 function getRequestedThingId(request: any): string {
   return String(request?.target?.thingId || request?.thingId || '').trim();
 }
 
+/**
+ * Decodes URI variables from a runtime request.
+ */
 function decodeUriVariables(uriVariables: any[] | undefined): Record<string, unknown> {
   const entries = Array.isArray(uriVariables) ? uriVariables : [];
   const values: Record<string, unknown> = {};
@@ -78,6 +108,9 @@ function decodeUriVariables(uriVariables: any[] | undefined): Record<string, unk
   return values;
 }
 
+/**
+ * Builds interaction options (uriVariables, formIndex) for node-wot.
+ */
 function buildInteractionOptions(request: any, resolvedFormIndex?: number): Record<string, unknown> | undefined {
   const options: Record<string, unknown> = {};
   const uriVariables = decodeUriVariables(request.uriVariables);
@@ -94,6 +127,9 @@ function buildInteractionOptions(request: any, resolvedFormIndex?: number): Reco
   return Object.keys(options).length === 0 ? undefined : options;
 }
 
+/**
+ * Builds a standardized interaction response object from an encoded payload.
+ */
 function buildEncodedInteractionResponse(
   payload: { body: Buffer; contentType: string },
   responseContentType?: string,
@@ -116,6 +152,9 @@ function buildEncodedInteractionResponse(
   };
 }
 
+/**
+ * Builds a standardized interaction response object from a high-level value.
+ */
 function buildInteractionResponse(value: unknown, contentType?: string): { response: any } {
   const payload = encodePayloadEnvelope(value, contentType);
   return buildEncodedInteractionResponse(
@@ -127,6 +166,9 @@ function buildInteractionResponse(value: unknown, contentType?: string): { respo
   );
 }
 
+/**
+ * Wraps a ContentStoreEntry into a content reference handle.
+ */
 function buildContentRefHandle(entry: ContentStoreEntry): {
   body: Buffer;
   contentType: string;
@@ -157,6 +199,14 @@ function buildContentRefHandle(entry: ContentStoreEntry): {
   };
 }
 
+/**
+ * Builds an interaction response, automatically offloading the payload to the content store
+ * if it exceeds the configured maximum inline size.
+ *
+ * @param payload The encoded interaction payload.
+ * @param context Metadata about the interaction for tracking and cleanup.
+ * @returns A standardized interaction response, potentially containing a content reference.
+ */
 async function buildOffloadAwareInteractionResponse(
   payload: EncodedInteractionPayload,
   context: {
@@ -213,6 +263,9 @@ async function buildOffloadAwareInteractionResponse(
   }
 }
 
+/**
+ * Fetches a Thing Description and consumes it via the node-wot servient.
+ */
 async function consumeThing(request: any): Promise<{
   thing: any;
   document: ThingDescription;
@@ -234,6 +287,11 @@ async function consumeThing(request: any): Promise<{
   return { thing, document, hash };
 }
 
+/**
+ * Handles a request to retrieve a Thing Description.
+ *
+ * @param request The runtime request containing the thingId.
+ */
 export async function handleGetThingDescription(request: any): Promise<any> {
   const thingId = String(request?.thingId || '').trim();
   if (!thingId) {
@@ -251,6 +309,11 @@ export async function handleGetThingDescription(request: any): Promise<any> {
   };
 }
 
+/**
+ * Handles a ReadProperty interaction.
+ *
+ * @param request The runtime request containing target and options.
+ */
 export async function handleReadProperty(request: any): Promise<any> {
   const thingId = getRequestedThingId(request);
   const propertyName = String(request?.target?.affordanceName || '').trim();
@@ -288,6 +351,11 @@ export async function handleReadProperty(request: any): Promise<any> {
   });
 }
 
+/**
+ * Handles a WriteProperty interaction.
+ *
+ * @param request The runtime request containing target, input, and options.
+ */
 export async function handleWriteProperty(request: any): Promise<any> {
   const thingId = getRequestedThingId(request);
   const propertyName = String(request?.target?.affordanceName || '').trim();
@@ -322,6 +390,11 @@ export async function handleWriteProperty(request: any): Promise<any> {
   return buildInteractionResponse(undefined);
 }
 
+/**
+ * Handles an InvokeAction interaction.
+ *
+ * @param request The runtime request containing target, input, and options.
+ */
 export async function handleInvokeAction(request: any): Promise<any> {
   const thingId = getRequestedThingId(request);
   const actionName = String(request?.target?.affordanceName || '').trim();
@@ -384,6 +457,9 @@ export async function handleInvokeAction(request: any): Promise<any> {
   };
 }
 
+/**
+ * Handles a health check request, returning the status of various runtime components.
+ */
 export async function handleGetRuntimeHealth(): Promise<any> {
   const health = await getRuntimeHealth();
 

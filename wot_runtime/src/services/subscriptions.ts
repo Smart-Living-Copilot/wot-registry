@@ -11,9 +11,19 @@ import { decodePayloadEnvelope, encodeInteractionOutputPayload } from './payload
 import { createRuntimeError, formatError } from './errors.js';
 import { publishRuntimeStreamEvent } from './stream-publisher.js';
 
+/**
+ * WoT operation names that involve long-lived subscriptions.
+ */
 type OperationName = 'observeproperty' | 'subscribeevent';
+
+/**
+ * High-level interaction type for metrics and stream events.
+ */
 type InteractionType = 'property' | 'event';
 
+/**
+ * Base properties for a subscription record.
+ */
 type SubscriptionRecordBase = {
   subscriptionId: string;
   key: string;
@@ -23,23 +33,42 @@ type SubscriptionRecordBase = {
   operationName: OperationName;
 };
 
+/**
+ * Represents a subscription that is currently being established.
+ */
 type PendingSubscription = SubscriptionRecordBase & {
   status: 'pending';
   cancelled: boolean;
 };
 
+/**
+ * Represents an established, active subscription that can be stopped.
+ */
 type ActiveSubscription = SubscriptionRecordBase & {
   status: 'active';
   subscription: { stop: (options?: Record<string, unknown>) => Promise<void> };
 };
 
+/**
+ * Union type for all possible subscription states.
+ */
 type SubscriptionRecord = PendingSubscription | ActiveSubscription;
+
+/**
+ * Possible setup states for a subscription.
+ */
 type SubscriptionSetupState = 'pending' | 'active';
 
+/**
+ * Checks if a value is a plain object.
+ */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * Checks if a value has a `stop` method (i.e., is a WoT Subscription).
+ */
 function hasStopMethod(value: unknown): value is { stop: (options?: Record<string, unknown>) => Promise<void> } {
   if (!value || typeof value !== 'object') {
     return false;
@@ -48,10 +77,16 @@ function hasStopMethod(value: unknown): value is { stop: (options?: Record<strin
   return 'stop' in value && typeof value.stop === 'function';
 }
 
+/**
+ * Checks if a property definition explicitly allows observation.
+ */
 function isObservablePropertyDefinition(value: unknown): boolean {
   return isPlainObject(value) && value.observable === true;
 }
 
+/**
+ * Helper to wrap a promise with a timeout.
+ */
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -71,6 +106,9 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
   }
 }
 
+/**
+ * Helper to wrap a promise with an optional timeout (no-op if timeoutMs <= 0).
+ */
 async function withOptionalTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   if (timeoutMs <= 0) {
     return promise;
@@ -79,6 +117,9 @@ async function withOptionalTimeout<T>(promise: Promise<T>, timeoutMs: number, me
   return withTimeout(promise, timeoutMs, message);
 }
 
+/**
+ * Asserts that a value is a valid WoT subscription with a `stop` method.
+ */
 function ensureRuntimeSubscription(
   value: unknown,
   message: string,
@@ -90,6 +131,10 @@ function ensureRuntimeSubscription(
   throw createRuntimeError('internal', message);
 }
 
+/**
+ * Serializes a value into a stable string for use as a Map key.
+ * Ensures consistent key order for objects.
+ */
 function stableSerialize(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map((item) => stableSerialize(item)).join(',')}]`;
@@ -105,6 +150,9 @@ function stableSerialize(value: unknown): string {
   return JSON.stringify(value);
 }
 
+/**
+ * Decodes URI variables from a runtime request.
+ */
 function decodeUriVariables(uriVariables: any[] | undefined): Record<string, unknown> {
   const values: Record<string, unknown> = {};
 
@@ -119,6 +167,9 @@ function decodeUriVariables(uriVariables: any[] | undefined): Record<string, unk
   return values;
 }
 
+/**
+ * Builds interaction options for a subscription.
+ */
 function buildInteractionOptions(
   request: any,
   resolvedFormIndex?: number,
@@ -143,6 +194,9 @@ function buildInteractionOptions(
   return Object.keys(options).length > 0 ? options : undefined;
 }
 
+/**
+ * Builds a unique, stable key for a subscription based on its identity and parameters.
+ */
 function buildSubscriptionKey(request: any, operationName: OperationName, extraData?: unknown): string {
   return stableSerialize({
     thingId: String(request?.target?.thingId || '').trim(),
@@ -154,6 +208,9 @@ function buildSubscriptionKey(request: any, operationName: OperationName, extraD
   });
 }
 
+/**
+ * Fetches and consumes a Thing Description.
+ */
 async function consumeThing(thingId: string): Promise<{
   thing: any;
   document: ThingDescription;
@@ -168,6 +225,9 @@ async function consumeThing(thingId: string): Promise<{
   return { thing, document };
 }
 
+/**
+ * Publishes a subscription lifecycle event to the runtime event stream.
+ */
 async function publishSubscriptionLifecycle(
   subscription: SubscriptionRecordBase,
   eventType: 'subscription_requested' | 'subscription_started' | 'subscription_failed' | 'subscription_stopped',
@@ -184,6 +244,9 @@ async function publishSubscriptionLifecycle(
   });
 }
 
+/**
+ * Publishes a data update from an active subscription to the runtime event stream.
+ */
 async function publishInteractionUpdate(
   subscription: SubscriptionRecordBase,
   output: any,
@@ -208,6 +271,9 @@ async function publishInteractionUpdate(
 const subscriptionsById = new Map<string, SubscriptionRecord>();
 const subscriptionsByKey = new Map<string, string>();
 
+/**
+ * Builds a public-facing handle for a subscription.
+ */
 function buildSubscriptionHandle(subscription: SubscriptionRecordBase): {
   subscriptionId: string;
   thingId: string;
@@ -227,10 +293,16 @@ function buildSubscriptionHandle(subscription: SubscriptionRecordBase): {
   };
 }
 
+/**
+ * Maps the internal status to a public setup state.
+ */
 function getSubscriptionSetupState(subscription: SubscriptionRecord): SubscriptionSetupState {
   return subscription.status;
 }
 
+/**
+ * Builds the response for an "ensure" subscription request.
+ */
 function buildEnsureSubscriptionResponse(
   subscription: SubscriptionRecord,
   created: boolean,
@@ -246,6 +318,9 @@ function buildEnsureSubscriptionResponse(
   };
 }
 
+/**
+ * Retrieves an existing subscription that matches the given request criteria.
+ */
 function getExistingSubscription(
   request: any,
   operationName: OperationName,
@@ -259,11 +334,17 @@ function getExistingSubscription(
   return subscriptionsById.get(existingId);
 }
 
+/**
+ * Stores a subscription record in the internal tracking maps.
+ */
 function rememberSubscription(subscription: SubscriptionRecord): void {
   subscriptionsById.set(subscription.subscriptionId, subscription);
   subscriptionsByKey.set(subscription.key, subscription.subscriptionId);
 }
 
+/**
+ * Removes a subscription record from the internal tracking maps.
+ */
 function forgetSubscription(subscriptionId: string): SubscriptionRecord | undefined {
   const subscription = subscriptionsById.get(subscriptionId);
   if (!subscription) {
@@ -277,6 +358,9 @@ function forgetSubscription(subscriptionId: string): SubscriptionRecord | undefi
   return subscription;
 }
 
+/**
+ * Initiates the asynchronous setup of a property observation.
+ */
 async function startPropertyObservation(pending: PendingSubscription, request: any): Promise<void> {
   try {
     const { thing, document } = await consumeThing(pending.thingId);
@@ -354,6 +438,9 @@ async function startPropertyObservation(pending: PendingSubscription, request: a
   }
 }
 
+/**
+ * Initiates the asynchronous setup of an event subscription.
+ */
 async function startEventSubscription(
   pending: PendingSubscription,
   request: any,
@@ -428,6 +515,14 @@ async function startEventSubscription(
   }
 }
 
+/**
+ * Ensures that a property observation exists for the given target.
+ * If a matching observation already exists, it is returned.
+ * Otherwise, a new one is asynchronously established.
+ *
+ * @param request The runtime request containing target and options.
+ * @returns A promise resolving to a subscription handle and its status.
+ */
 export async function ensurePropertyObservation(request: any): Promise<any> {
   const thingId = String(request?.target?.thingId || '').trim();
   const propertyName = String(request?.target?.affordanceName || '').trim();
@@ -463,6 +558,14 @@ export async function ensurePropertyObservation(request: any): Promise<any> {
   return buildEnsureSubscriptionResponse(pending, true);
 }
 
+/**
+ * Ensures that an event subscription exists for the given target.
+ * If a matching subscription already exists, it is returned.
+ * Otherwise, a new one is asynchronously established.
+ *
+ * @param request The runtime request containing target, input, and options.
+ * @returns A promise resolving to a subscription handle and its status.
+ */
 export async function ensureEventSubscription(request: any): Promise<any> {
   const thingId = String(request?.target?.thingId || '').trim();
   const eventName = String(request?.target?.affordanceName || '').trim();
@@ -499,6 +602,12 @@ export async function ensureEventSubscription(request: any): Promise<any> {
   return buildEnsureSubscriptionResponse(pending, true);
 }
 
+/**
+ * Removes and stops a specific subscription by its ID.
+ *
+ * @param request The runtime request containing the subscriptionId.
+ * @returns A promise resolving to whether the subscription was removed.
+ */
 export async function removeSubscription(request: any): Promise<any> {
   const subscriptionId = String(request?.subscriptionId || '').trim();
   if (!subscriptionId) {
@@ -528,6 +637,10 @@ export async function removeSubscription(request: any): Promise<any> {
   return { removed: true };
 }
 
+/**
+ * Stops all currently tracked subscriptions.
+ * Used during runtime shutdown.
+ */
 export async function stopAllSubscriptions(): Promise<void> {
   const activeSubscriptions = [...subscriptionsById.values()];
   subscriptionsById.clear();

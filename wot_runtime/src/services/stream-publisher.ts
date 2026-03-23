@@ -4,6 +4,10 @@ import { config } from '../config/env.js';
 import log from '../logger/index.js';
 import { formatError } from './errors.js';
 
+/**
+ * Standard structure for events published to the runtime event stream.
+ * These events are consumed by the search indexer and other downstream services.
+ */
 type RuntimeStreamEvent = {
   eventType: string;
   thingId: string;
@@ -21,6 +25,9 @@ type RuntimeStreamEvent = {
 
 let redisPromise: Promise<RedisClient> | null = null;
 
+/**
+ * Creates and initializes a new Redis/Valkey client.
+ */
 async function createRedisClient(): Promise<RedisClient> {
   const client = new RedisClient(config.redisUrl, {
     lazyConnect: true,
@@ -35,6 +42,10 @@ async function createRedisClient(): Promise<RedisClient> {
   return client;
 }
 
+/**
+ * Returns a promise that resolves to the singleton Redis/Valkey client instance.
+ * Initializes the client on first call.
+ */
 async function getRedisClient(): Promise<RedisClient> {
   if (!redisPromise) {
     redisPromise = createRedisClient().catch((error) => {
@@ -46,6 +57,9 @@ async function getRedisClient(): Promise<RedisClient> {
   return redisPromise;
 }
 
+/**
+ * Converts a value to a string suitable for a Redis field.
+ */
 function toFieldValue(value: unknown): string {
   if (value === undefined || value === null) {
     return '';
@@ -62,6 +76,13 @@ function toFieldValue(value: unknown): string {
   return String(value);
 }
 
+/**
+ * Publishes an event to the configured Valkey stream.
+ *
+ * @param event The runtime stream event to publish.
+ * @returns A promise that resolves when the event has been added to the stream.
+ * @throws {Error} if publishing fails.
+ */
 export async function publishRuntimeStreamEvent(event: RuntimeStreamEvent): Promise<void> {
   const client = await getRedisClient();
   const fields = [
@@ -94,6 +115,11 @@ export async function publishRuntimeStreamEvent(event: RuntimeStreamEvent): Prom
   await client.xadd(config.streamName, '*', ...fields);
 }
 
+/**
+ * Pings the Valkey server to check for reachability.
+ *
+ * @returns A promise resolving to true if reachable, false otherwise.
+ */
 export async function pingValkey(): Promise<boolean> {
   try {
     const client = await getRedisClient();
@@ -103,6 +129,9 @@ export async function pingValkey(): Promise<boolean> {
   }
 }
 
+/**
+ * Closes the Valkey client connection and resets the singleton instance.
+ */
 export async function closeValkeyClient(): Promise<void> {
   if (!redisPromise) {
     return;

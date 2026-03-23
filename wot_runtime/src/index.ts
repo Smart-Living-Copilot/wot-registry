@@ -11,6 +11,12 @@ import { getRuntimeHealth } from './services/runtime-health.js';
 import { closeValkeyClient } from './services/stream-publisher.js';
 import { stopAllSubscriptions } from './services/subscriptions.js';
 
+/**
+ * Initializes and starts the wot_runtime Express server.
+ * Sets up health endpoints, middleware, routes, and graceful shutdown handlers.
+ *
+ * @returns A promise that resolves when the server has started.
+ */
 async function start(): Promise<void> {
   await ensureWotReady();
 
@@ -57,6 +63,9 @@ async function start(): Promise<void> {
     });
   });
 
+  /**
+   * Gracefully shuts down the runtime by stopping subscriptions and closing connections.
+   */
   const shutdown = (signal: NodeJS.Signals): void => {
     log.info(`Received ${signal}, shutting down wot_runtime`);
     httpServer.close(() => {
