@@ -4,7 +4,6 @@ COPY wot_runtime/package*.json ./
 RUN npm install
 COPY wot_runtime/tsconfig.json ./
 COPY wot_runtime/src ./src
-COPY proto /app/proto
 RUN npm run build
 
 FROM node:22-trixie-slim AS production
@@ -41,7 +40,6 @@ RUN pip install --no-cache-dir /app/backend
 ENV PYTHONPATH=/app/backend/src
 
 COPY --from=runtime-builder /app/wot_runtime /app/wot_runtime
-COPY --from=runtime-builder /app/proto /app/proto
 
 COPY docker/rootfs/ /
 RUN chmod +x /etc/s6-overlay/s6-rc.d/*/run
