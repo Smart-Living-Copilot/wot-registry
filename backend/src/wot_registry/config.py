@@ -39,6 +39,8 @@ class Settings:
     OPENAI_API_BASE_URL: str | None
     OPENAI_API_KEY: str | None
     OPENAI_MODEL: str | None
+    OPENAI_EMBEDDING_API_BASE_URL: str | None
+    OPENAI_EMBEDDING_API_KEY: str | None
     OPENAI_EMBEDDING_MODEL: str
     WOT_RUNTIME_URL: str
     WOT_RUNTIME_TIMEOUT_SECONDS: int
@@ -112,6 +114,12 @@ def get_settings() -> Settings:
         OPENAI_API_BASE_URL=os.getenv("OPENAI_API_BASE_URL") or None,
         OPENAI_API_KEY=os.getenv("OPENAI_API_KEY") or None,
         OPENAI_MODEL=os.getenv("OPENAI_MODEL") or None,
+        OPENAI_EMBEDDING_API_BASE_URL=os.getenv("OPENAI_EMBEDDING_API_BASE_URL")
+        or os.getenv("OPENAI_API_BASE_URL")
+        or None,
+        OPENAI_EMBEDDING_API_KEY=os.getenv("OPENAI_EMBEDDING_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+        or None,
         OPENAI_EMBEDDING_MODEL=os.getenv("OPENAI_EMBEDDING_MODEL", "mxbai-embed-large"),
         WOT_RUNTIME_URL=os.getenv("WOT_RUNTIME_URL", "http://localhost:3003"),
         WOT_RUNTIME_TIMEOUT_SECONDS=_int_env("WOT_RUNTIME_TIMEOUT_SECONDS", 15),

@@ -27,11 +27,11 @@ class ThingSearchService:
         self._settings = settings
         self._embeddings = (
             create_openai_embeddings(
-                base_url=self._settings.OPENAI_API_BASE_URL,
-                api_key=self._settings.OPENAI_API_KEY,
+                base_url=self._settings.OPENAI_EMBEDDING_API_BASE_URL,
+                api_key=self._settings.OPENAI_EMBEDDING_API_KEY,
                 model=self._settings.OPENAI_EMBEDDING_MODEL,
             )
-            if self._settings.OPENAI_API_KEY
+            if self._settings.OPENAI_EMBEDDING_API_KEY
             else None
         )
         self._vector_store = SearchVectorStore(

@@ -38,8 +38,8 @@ class SearchIndexerService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._embeddings = create_openai_embeddings(
-            base_url=settings.OPENAI_API_BASE_URL,
-            api_key=settings.OPENAI_API_KEY,
+            base_url=settings.OPENAI_EMBEDDING_API_BASE_URL,
+            api_key=settings.OPENAI_EMBEDDING_API_KEY,
             model=settings.OPENAI_EMBEDDING_MODEL,
         )
         self._client = create_openai_client(
