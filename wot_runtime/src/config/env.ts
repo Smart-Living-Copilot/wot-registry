@@ -57,6 +57,10 @@ export const config = {
   secretsRefreshIntervalMs: parseIntEnv('SECRETS_REFRESH_INTERVAL_MS', 60000),
   inlinePayloadMaxBytes: parseNonNegativeIntEnv('WOT_INLINE_PAYLOAD_MAX_BYTES', 65536),
   offloadedPayloadTtlSeconds: parseNonNegativeIntEnv('WOT_OFFLOADED_PAYLOAD_TTL_SECONDS', 86400),
+  requestBodyLimit: process.env.REQUEST_BODY_LIMIT || '50mb',
+  cacheEnabled: (process.env.WOT_CACHE_ENABLED || 'true').toLowerCase() === 'true',
+  cacheTtlSeconds: parseNonNegativeIntEnv('WOT_CACHE_TTL_SECONDS', 300),
+  cacheMaxBytes: parseNonNegativeIntEnv('WOT_CACHE_MAX_BYTES', 10 * 1024 * 1024),
 } as const;
 
 /**

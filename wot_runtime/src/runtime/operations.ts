@@ -2,6 +2,7 @@ import log from '../logger/index.js';
 import { annotateThingDescriptionSecurityNames } from '../runtime/credentials.js';
 import { getWotClient } from '../runtime/servient.js';
 import { config } from '../config/env.js';
+import { buildCacheKey, getCached, setCached } from '../services/cache.js';
 import { type ContentStoreEntry, fetchContentBlob, storeContentBlob } from '../services/content-store-client.js';
 import { fetchThingDescription, type ThingDescription } from '../services/thing-catalog-client.js';
 import {
@@ -429,6 +430,23 @@ export async function handleInvokeAction(request: any): Promise<any> {
     );
   }
 
+  const isCacheable = isPlainObject(actionDef) && actionDef.safe === true;
+  const uriVariables = decodeUriVariables(request.uriVariables);
+  const cacheKey = isCacheable ? buildCacheKey(thingId, 'invoke_action', actionName, uriVariables, input) : '';
+
+  if (isCacheable) {
+    const cached = await getCached(cacheKey);
+    if (cached) {
+      log.info(`Cache hit for invokeAction '${thingId}/${actionName}'`);
+      return {
+        completedResult: buildEncodedInteractionResponse(
+          { body: Buffer.from(cached.payload, 'base64'), contentType: cached.contentType },
+          cached.contentType,
+        ).response,
+      };
+    }
+  }
+
   const result =
     input === undefined
       ? await thing.invokeAction(actionName, undefined, options)
@@ -440,16 +458,22 @@ export async function handleInvokeAction(request: any): Promise<any> {
         log.warn(`Action '${actionName}' returned data that failed output schema validation, returning raw value`);
       },
     });
-    return {
-      completedResult: (
-        await buildOffloadAwareInteractionResponse(payload, {
-          thingId,
-          affordanceName: actionName,
-          operation: 'invoke_action',
-          tdHash: hash,
-        })
-      ).response,
-    };
+    const interactionResponse = await buildOffloadAwareInteractionResponse(payload, {
+      thingId,
+      affordanceName: actionName,
+      operation: 'invoke_action',
+      tdHash: hash,
+    });
+
+    if (isCacheable) {
+      await setCached(
+        cacheKey,
+        { contentType: payload.contentType, payload: payload.body.toString('base64'), statusCode: 200 },
+        payload.body.length,
+      ).catch((error) => log.warn(`Cache write failed for invokeAction '${thingId}/${actionName}': ${formatError(error)}`));
+    }
+
+    return { completedResult: interactionResponse.response };
   }
 
   return {

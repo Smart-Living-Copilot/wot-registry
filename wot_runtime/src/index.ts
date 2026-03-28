@@ -8,7 +8,7 @@ import { createRuntimeRouter } from './http/runtime-routes.js';
 import log from './logger/index.js';
 import { ensureWotReady, shutdownWot } from './runtime/servient.js';
 import { getRuntimeHealth } from './services/runtime-health.js';
-import { closeValkeyClient } from './services/stream-publisher.js';
+import { closeValkeyClient } from './services/valkey-client.js';
 import { stopAllSubscriptions } from './services/subscriptions.js';
 
 /**
@@ -21,7 +21,7 @@ async function start(): Promise<void> {
   await ensureWotReady();
 
   const app = express();
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: config.requestBodyLimit }));
 
   app.get('/', (_request, response) => {
     response.json({

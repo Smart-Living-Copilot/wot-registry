@@ -1,8 +1,5 @@
-import { Redis as RedisClient } from 'ioredis';
-
 import { config } from '../config/env.js';
-import log from '../logger/index.js';
-import { formatError } from './errors.js';
+import { getValkeyClient } from './valkey-client.js';
 
 /**
  * Standard structure for events published to the runtime event stream.
@@ -22,40 +19,6 @@ type RuntimeStreamEvent = {
   requiresResponse?: boolean;
   detail?: string;
 };
-
-let redisPromise: Promise<RedisClient> | null = null;
-
-/**
- * Creates and initializes a new Redis/Valkey client.
- */
-async function createRedisClient(): Promise<RedisClient> {
-  const client = new RedisClient(config.redisUrl, {
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-  });
-
-  client.on('error', (error: unknown) => {
-    log.error(`Valkey error: ${formatError(error)}`);
-  });
-
-  await client.connect();
-  return client;
-}
-
-/**
- * Returns a promise that resolves to the singleton Redis/Valkey client instance.
- * Initializes the client on first call.
- */
-async function getRedisClient(): Promise<RedisClient> {
-  if (!redisPromise) {
-    redisPromise = createRedisClient().catch((error) => {
-      redisPromise = null;
-      throw error;
-    });
-  }
-
-  return redisPromise;
-}
 
 /**
  * Converts a value to a string suitable for a Redis field.
@@ -84,7 +47,7 @@ function toFieldValue(value: unknown): string {
  * @throws {Error} if publishing fails.
  */
 export async function publishRuntimeStreamEvent(event: RuntimeStreamEvent): Promise<void> {
-  const client = await getRedisClient();
+  const client = await getValkeyClient();
   const fields = [
     'event_type',
     event.eventType,
@@ -113,31 +76,4 @@ export async function publishRuntimeStreamEvent(event: RuntimeStreamEvent): Prom
   ] as const;
 
   await client.xadd(config.streamName, '*', ...fields);
-}
-
-/**
- * Pings the Valkey server to check for reachability.
- *
- * @returns A promise resolving to true if reachable, false otherwise.
- */
-export async function pingValkey(): Promise<boolean> {
-  try {
-    const client = await getRedisClient();
-    return (await client.ping()) === 'PONG';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Closes the Valkey client connection and resets the singleton instance.
- */
-export async function closeValkeyClient(): Promise<void> {
-  if (!redisPromise) {
-    return;
-  }
-
-  const client = await redisPromise.catch(() => null);
-  redisPromise = null;
-  await client?.quit().catch(() => undefined);
 }

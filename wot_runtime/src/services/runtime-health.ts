@@ -1,7 +1,7 @@
 import { config } from '../config/env.js';
 import { pingThingCatalog } from './thing-catalog-client.js';
 import { getRuntimeSnapshot } from '../runtime/servient.js';
-import { pingValkey } from './stream-publisher.js';
+import { pingValkey } from './valkey-client.js';
 
 /**
  * Snapshot of the runtime health status.
