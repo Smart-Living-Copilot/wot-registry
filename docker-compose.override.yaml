@@ -1,9 +1,13 @@
 services:
-  wot-registry-stack:
+  wot-registry:
     volumes:
       - ./backend:/app/backend
-      - ./wot_runtime:/app/wot_runtime
       - ./proto:/app/proto
-      - /app/wot_runtime/node_modules
-      - ./docker/dev-rootfs/registry/run:/etc/s6-overlay/s6-rc.d/registry/run:ro
-      - ./docker/dev-rootfs/runtime/run:/etc/s6-overlay/s6-rc.d/runtime/run:ro
+    # Override entrypoint for dev: run with --reload, consumer in background
+    entrypoint: ["/bin/sh", "-c", "python3 /app/backend/src/wot_registry/search_indexer/main.py & exec uvicorn wot_registry.app:app --app-dir /app/backend/src --host 0.0.0.0 --port 8000 --reload"]
+
+  wot-runtime:
+    volumes:
+      - ./wot_runtime:/app
+      - /app/node_modules
+    command: ["npx", "tsx", "watch", "src/index.ts"]

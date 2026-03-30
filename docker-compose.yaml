@@ -1,14 +1,31 @@
 services:
-  wot-registry-stack:
+  valkey:
+    image: valkey/valkey:8-alpine
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: always
+
+  wot-registry:
     build:
       context: .
-      dockerfile: docker/Dockerfile
-    image: registry.dataspace.plaiful.org/demo_fsn/wot-registry-stack:latest
+      dockerfile: docker/Dockerfile.registry
+    image: ghcr.io/2wot/wot-registry:latest
+    depends_on:
+      valkey:
+        condition: service_healthy
     environment:
+      REDIS_URL: redis://valkey:6379
       REGISTRY_DATABASE_URL: ${REGISTRY_DATABASE_URL:-sqlite:////data/registry/wot_registry.db}
+      REGISTRY_PUBLIC_URL: ${REGISTRY_PUBLIC_URL:-http://localhost:8000}
       INIT_ADMIN_TOKEN: ${INIT_ADMIN_TOKEN}
       WOT_RUNTIME_REGISTRY_TOKEN: ${WOT_RUNTIME_REGISTRY_TOKEN}
       WOT_RUNTIME_API_TOKEN: ${WOT_RUNTIME_API_TOKEN}
+      WOT_RUNTIME_URL: http://wot-runtime:3003
       SEARCH_VECTOR_COLLECTION_NAME: ${SEARCH_VECTOR_COLLECTION_NAME:-thing_search}
       SEARCH_VECTOR_STORE_DIR: /data/content/search-index
       SEARCH_INDEXER_EVENTS_GROUP: ${SEARCH_INDEXER_EVENTS_GROUP:-thing_search_indexer}
@@ -17,12 +34,13 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-mxbai-embed-large}
+      EMBEDDING_API_BASE_URL: ${EMBEDDING_API_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
       WOT_RUNTIME_TIMEOUT_SECONDS: ${WOT_RUNTIME_TIMEOUT_SECONDS:-15}
       WOT_RUNTIME_SUBSCRIPTION_TIMEOUT_SECONDS: ${WOT_RUNTIME_SUBSCRIPTION_TIMEOUT_SECONDS:-5}
       CONTENT_STORE_DIR: /data/content
       CONTENT_STORE_DEFAULT_TTL_SECONDS: ${CONTENT_STORE_DEFAULT_TTL_SECONDS:-3600}
       CONTENT_STORE_CLEANUP_INTERVAL_SECONDS: ${CONTENT_STORE_CLEANUP_INTERVAL_SECONDS:-60}
-      REGISTRY_PUBLIC_URL: ${REGISTRY_PUBLIC_URL:-http://localhost:8000}
       WOT_SUBSCRIPTION_SETUP_TIMEOUT_MS: ${WOT_SUBSCRIPTION_SETUP_TIMEOUT_MS:-0}
       WOT_INLINE_PAYLOAD_MAX_BYTES: ${WOT_INLINE_PAYLOAD_MAX_BYTES:-65536}
       WOT_OFFLOADED_PAYLOAD_TTL_SECONDS: ${WOT_OFFLOADED_PAYLOAD_TTL_SECONDS:-86400}
@@ -39,6 +57,34 @@ services:
       start_period: 10s
     restart: always
 
+  wot-runtime:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.runtime
+    image: ghcr.io/2wot/wot-runtime:latest
+    depends_on:
+      valkey:
+        condition: service_healthy
+      wot-registry:
+        condition: service_healthy
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3003"
+      REDIS_URL: redis://valkey:6379
+      REGISTRY_URL: http://wot-registry:8000
+      WOT_RUNTIME_REGISTRY_TOKEN: ${WOT_RUNTIME_REGISTRY_TOKEN}
+      WOT_RUNTIME_API_TOKEN: ${WOT_RUNTIME_API_TOKEN}
+      WOT_RUNTIME_STREAM: ${WOT_RUNTIME_STREAM:-wot_runtime_events}
+      WOT_SUBSCRIPTION_SETUP_TIMEOUT_MS: ${WOT_SUBSCRIPTION_SETUP_TIMEOUT_MS:-0}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: always
+
 volumes:
+  valkey-data:
   content-store:
   wot-registry-data:
