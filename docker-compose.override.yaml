@@ -3,8 +3,8 @@ services:
     volumes:
       - ./backend:/app/backend
       - ./proto:/app/proto
-    # Override entrypoint for dev: run with --reload, consumer in background
-    entrypoint: ["/bin/sh", "-c", "python3 /app/backend/src/wot_registry/search_indexer/main.py & exec uvicorn wot_registry.app:app --app-dir /app/backend/src --host 0.0.0.0 --port 8000 --reload"]
+    # Override entrypoint for dev: run the app with --reload only.
+    entrypoint: ["uvicorn", "wot_registry.app:app", "--app-dir", "/app/backend/src", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
   wot-runtime:
     volumes:
